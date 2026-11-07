@@ -64,7 +64,10 @@ async def _remove_via_ws(hass, hass_ws_client, entry, device) -> dict:
 @pytest.fixture
 async def loaded(hass: HomeAssistant, fake_flicd):
     """A loaded entry with two buttons; unloaded again before the fake stops."""
-    fake_flicd.buttons = {A: {"flic_version": 1, "serial_number": "AA11"}, B: {}}
+    fake_flicd.buttons = {
+        A: {"flic_version": 1, "serial_number": "AA11"},
+        B: {"firmware_version": 0},
+    }
     entry = _entry(fake_flicd)
     await _setup(hass, entry)
     assert entry.state is ConfigEntryState.LOADED
@@ -86,6 +89,7 @@ async def test_setup_creates_server_and_button_devices(hass, loaded, fake_flicd)
     assert a.model == "Flic 1"
     assert a.serial_number == "AA11"
     assert a.sw_version == "1"
+    assert b.sw_version is None  # firmware 0 = unknown (older flicd)
     assert a.name == f"Flic {A}"
     assert (
         len(dr.async_entries_for_config_entry(dr.async_get(hass), loaded.entry_id)) == 3

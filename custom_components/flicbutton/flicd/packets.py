@@ -183,6 +183,8 @@ _ENUM_FIELDS: dict[str, type[IntEnum]] = {
 
 _BD_ADDR_FIELDS = ("bd_addr", "my_bd_addr")
 _UUID_NONE = "0" * 32
+# opcode + bd_addr + uuid: the EvtGetButtonInfoResponse sent by older flicd builds.
+_SHORT_BUTTON_INFO_SIZE = 1 + 6 + 16
 
 
 def _addr_to_bytes(addr: str) -> bytes:
@@ -270,8 +272,15 @@ def decode_event(payload: bytes) -> tuple[str, dict[str, Any]] | None:
     opcode = payload[0]
     if opcode >= len(_EVENTS):
         return None
-    items = _unpack(_EVENT_STRUCTS, _EVENT_FIELDS, opcode, payload)
     name = _EVENTS[opcode][0]
+    legacy_button_info = False
+    if name == "EvtGetButtonInfoResponse":
+        full = 1 + _EVENT_STRUCTS[opcode].size
+        if _SHORT_BUTTON_INFO_SIZE <= len(payload) < full:
+            # Older flicd builds (Flic 1 only) send just bd_addr + uuid.
+            payload = payload + bytes(full - len(payload))
+            legacy_button_info = True
+    items = _unpack(_EVENT_STRUCTS, _EVENT_FIELDS, opcode, payload)
 
     for key in ("name", "color", "serial_number"):
         if key in items:
@@ -282,6 +291,8 @@ def decode_event(payload: bytes) -> tuple[str, dict[str, Any]] | None:
             items["uuid"] = None
         items["color"] = items["color"] or None
         items["serial_number"] = items["serial_number"] or None
+        if legacy_button_info:
+            items["flic_version"] = 1
     elif name == "EvtGetInfoResponse":
         pos = 1 + _EVENT_STRUCTS[opcode].size
         count = items["nb_verified_buttons"]

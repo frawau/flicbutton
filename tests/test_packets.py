@@ -126,3 +126,19 @@ def test_command_roundtrip_all():
         fields = {f: _SAMPLE_FIELDS[f] for f in field_names.split()}
         (payload,) = FrameReader().feed(encode_command(name, **fields))
         assert decode_command(payload) == (name, fields)
+
+
+def test_decode_short_button_info_from_older_flicd() -> None:
+    """Older flicd builds (Flic 1 only) send bd_addr + uuid and nothing else.
+
+    These are the exact bytes captured from a real Raspberry Pi flicd.
+    """
+    payload = bytes.fromhex("0e23d670dae480556027f438be9eac9be2ed4f9c00a825")
+    name, items = decode_event(payload)
+    assert name == "EvtGetButtonInfoResponse"
+    assert items["bd_addr"] == "80:e4:da:70:d6:23"
+    assert items["uuid"] == "556027f438be9eac9be2ed4f9c00a825"
+    assert items["color"] is None
+    assert items["serial_number"] is None
+    assert items["flic_version"] == 1
+    assert items["firmware_version"] == 0

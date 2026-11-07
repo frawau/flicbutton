@@ -87,7 +87,7 @@ def async_claim_button_device(
         manufacturer=MANUFACTURER,
         model=f"Flic {info.flic_version}",
         serial_number=info.serial_number,
-        sw_version=str(info.firmware_version),
+        sw_version=str(info.firmware_version) if info.firmware_version else None,
         hw_version=info.color,
         name=f"Flic {info.bd_addr}",
     )
