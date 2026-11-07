@@ -80,7 +80,7 @@ Success means:
    reset), its HA device is removed.
 10. Diagnostics download (config entry diagnostics: server info, button
     list, connection state; redact nothing sensitive beyond host).
-11. Translations: English (`strings.json` + `translations/en.json`).
+11. Translations: English (`translations/en.json`; custom integrations do not ship `strings.json`).
 
 ## 3. Non-goals (this phase)
 
