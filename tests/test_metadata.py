@@ -55,3 +55,11 @@ def test_device_trigger_strings_have_no_placeholders() -> None:
         "double": "Double click",
         "hold": "Hold",
     }
+
+
+def test_manifest_key_order() -> None:
+    """hassfest requires domain, name, then the remaining keys alphabetically."""
+    manifest = json.loads((COMPONENT / "manifest.json").read_text())
+    keys = list(manifest)
+    assert keys[:2] == ["domain", "name"]
+    assert keys[2:] == sorted(keys[2:])
