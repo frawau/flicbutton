@@ -1,0 +1,13 @@
+{
+  "domain": "flicbutton",
+  "name": "Flic button (flicd)",
+  "version": "0.1.0",
+  "documentation": "https://github.com/frawau/flicbutton",
+  "issue_tracker": "https://github.com/frawau/flicbutton/issues",
+  "codeowners": ["@frawau"],
+  "config_flow": true,
+  "iot_class": "local_push",
+  "integration_type": "hub",
+  "requirements": [],
+  "dependencies": []
+}
