@@ -83,7 +83,7 @@ class HubOptions:
 
 class HubEventKind(StrEnum):
     AVAILABILITY = "availability"
-    BUTTON_ADDED = "button_added"
+    BUTTON_ADDED = "button_added"  # value: True on a fresh pairing, False on sync
     BUTTON_REMOVED = "button_removed"
     CLICK = "click"
     PRESSED = "pressed"
@@ -312,7 +312,9 @@ class FlicHub:
         for bd_addr in info.verified_buttons:
             await self._async_setup_button(client, bd_addr)
 
-    async def _async_setup_button(self, client: FlicdClient, bd_addr: str) -> None:
+    async def _async_setup_button(
+        self, client: FlicdClient, bd_addr: str, fresh_pairing: bool = False
+    ) -> None:
         if bd_addr in self._setup_started:
             return
         self._setup_started.add(bd_addr)
@@ -327,7 +329,9 @@ class FlicHub:
         )
         client.add_battery_listener(bd_addr, partial(self._on_battery, bd_addr))
         if is_new:
-            self._async_emit(HubEvent(HubEventKind.BUTTON_ADDED, bd_addr))
+            self._async_emit(
+                HubEvent(HubEventKind.BUTTON_ADDED, bd_addr, fresh_pairing)
+            )
 
     @callback
     def _async_drop_button(self, bd_addr: str) -> None:
@@ -430,7 +434,7 @@ class FlicHub:
 
     async def _async_setup_new_button(self, client: FlicdClient, bd_addr: str) -> None:
         try:
-            await self._async_setup_button(client, bd_addr)
+            await self._async_setup_button(client, bd_addr, fresh_pairing=True)
         except FlicdConnectionError:
             pass  # the reconnect sync picks it up
 

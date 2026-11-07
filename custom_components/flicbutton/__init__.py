@@ -33,12 +33,16 @@ def _server_identifier(entry: ConfigEntry) -> tuple[str, str]:
 
 @callback
 def async_claim_button_device(
-    hass: HomeAssistant, entry: FlicConfigEntry, info: ButtonInfo
-) -> dr.DeviceEntry:
+    hass: HomeAssistant,
+    entry: FlicConfigEntry,
+    info: ButtonInfo,
+    fresh_pairing: bool = False,
+) -> dr.DeviceEntry | None:
     """Create or update the device of a button for this entry.
 
-    A device that still belongs to another flicbutton entry (the button was
-    re-paired to this server) is moved here together with its entities.
+    A device owned by another flicbutton entry is moved here, together with its
+    entities, only on a fresh pairing. Otherwise (sync of a server that still
+    lists the button) it is left untouched and None is returned.
     """
     dev_reg = dr.async_get(hass)
     server = dev_reg.async_get_device_by_identifier(
@@ -51,6 +55,8 @@ def async_claim_button_device(
             owner = hass.config_entries.async_get_entry(other.config_entry_id)
             if owner is None or owner.domain != DOMAIN:
                 continue
+            if not fresh_pairing:
+                return None
             _LOGGER.info(
                 "Moving button %s from %s to %s", info.bd_addr, owner.title, entry.title
             )
@@ -120,7 +126,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: FlicConfigEntry) -> bool
         if event.bd_addr is None:
             return
         if event.kind is HubEventKind.BUTTON_ADDED:
-            async_claim_button_device(hass, entry, hub.buttons[event.bd_addr])
+            async_claim_button_device(
+                hass, entry, hub.buttons[event.bd_addr], bool(event.value)
+            )
         elif event.kind is HubEventKind.BUTTON_REMOVED:
             _async_remove_button_device(hass, entry, event.bd_addr)
 

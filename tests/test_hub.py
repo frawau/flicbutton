@@ -148,7 +148,9 @@ async def test_start_syncs_buttons(fake_flicd, make_hub):
     hub, events = await make_hub()
     assert set(hub.buttons) == {A, B}
     assert hub.buttons[A].serial_number == "AA11"
-    assert [e.bd_addr for e in _kinds(events, HubEventKind.BUTTON_ADDED)] == [A, B]
+    added = _kinds(events, HubEventKind.BUTTON_ADDED)
+    assert [e.bd_addr for e in added] == [A, B]
+    assert [e.value for e in added] == [False, False]
     assert events[-1].kind is HubEventKind.AVAILABILITY
     assert hub.connected is True
     assert hub.available is True
@@ -334,7 +336,9 @@ async def test_new_verified_button_added(fake_flicd, make_hub):
     await fake_flicd.send("EvtNewVerifiedButton", bd_addr=C)
     await _until(lambda: C in hub.buttons)
     assert hub.buttons[C].color == "black"
-    assert [e.bd_addr for e in _kinds(events, HubEventKind.BUTTON_ADDED)] == [A, C]
+    added = _kinds(events, HubEventKind.BUTTON_ADDED)
+    assert [e.bd_addr for e in added] == [A, C]
+    assert [e.value for e in added] == [False, True]
     await _until(lambda: _count(fake_flicd, "CmdCreateBatteryStatusListener") == 2)
     assert _conn_id(fake_flicd, C)
 
