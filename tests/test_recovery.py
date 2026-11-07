@@ -8,7 +8,7 @@ from datetime import timedelta
 
 import pytest
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.const import STATE_UNAVAILABLE
+from homeassistant.const import STATE_OFF, STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
@@ -129,5 +129,36 @@ async def test_flicd_reboot_recovers_without_restart(
             "queued_time": 0,
         }
     ]
+
+    await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_button_held_during_outage_is_released(hass: HomeAssistant, fake_flicd):
+    fake_flicd.buttons = {A: {}, B: {}}
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=fake_flicd.bd_addr,
+        data={"host": "127.0.0.1", "port": fake_flicd.port},
+    )
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    await _until(lambda: _count(fake_flicd, "CmdCreateBatteryStatusListener") == 2)
+    pressed = er.async_get(hass).async_get_entity_id(
+        "binary_sensor", DOMAIN, f"{A}_pressed"
+    )
+
+    await fake_flicd.send(
+        "EvtButtonUpOrDown",
+        conn_id=_conn_id(fake_flicd, A),
+        click_type=ClickType.ButtonDown,
+        was_queued=False,
+        time_diff=0,
+    )
+    await _until(lambda: hass.states.get(pressed).state == "on")
+    await fake_flicd.drop_clients()  # the ButtonUp is lost with the link
+    await _until(lambda: hass.states.get(pressed).state == STATE_UNAVAILABLE)
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=1))
+    await _until(lambda: hass.states.get(pressed).state == STATE_OFF)
 
     await hass.config_entries.async_unload(entry.entry_id)

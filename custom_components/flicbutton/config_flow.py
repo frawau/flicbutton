@@ -88,6 +88,11 @@ class FlicButtonConfigFlow(ConfigFlow, domain=DOMAIN):
                 info = await _async_get_server_info(host, port)
             except (FlicdConnectionError, TimeoutError):
                 errors["base"] = "cannot_connect"
+            except Exception:
+                _LOGGER.exception(
+                    "Unexpected error talking to flicd at %s:%s", host, port
+                )
+                errors["base"] = "unknown"
             else:
                 await self.async_set_unique_id(info.bd_addr.lower())
                 self._abort_if_unique_id_configured(

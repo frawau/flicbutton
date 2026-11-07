@@ -290,7 +290,12 @@ async def test_drop_marks_unavailable_and_reconnects(hass, fake_flicd, make_hub)
         await fake_flicd.drop_clients()
         await _until(lambda: not hub.connected)
         assert hub.available is False
-        assert [e.kind for e in events] == [HubEventKind.AVAILABILITY]
+        # Every button is released first, so none stays "pressed" after the outage.
+        assert [(e.kind, e.bd_addr, e.value) for e in events] == [
+            (HubEventKind.PRESSED, A, False),
+            (HubEventKind.PRESSED, B, False),
+            (HubEventKind.AVAILABILITY, None, None),
+        ]
 
         await _fire(hass, 1)
         await _until(lambda: hub.connected)

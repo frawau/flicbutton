@@ -69,6 +69,24 @@ async def test_user_flow_cannot_connect(hass: HomeAssistant, fake_flicd) -> None
     await _unload_all(hass)
 
 
+async def test_user_flow_unknown_error(hass: HomeAssistant, fake_flicd, caplog) -> None:
+    with patch(
+        "custom_components.flicbutton.config_flow._async_get_server_info",
+        side_effect=RuntimeError("boom"),
+    ):
+        result = await _start(hass, "127.0.0.1", fake_flicd.port)
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "unknown"}
+    assert "Unexpected error talking to flicd at 127.0.0.1" in caplog.text
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_HOST: "127.0.0.1", CONF_PORT: fake_flicd.port}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+    await _unload_all(hass)
+
+
 async def test_user_flow_already_configured_updates_host(
     hass: HomeAssistant, fake_flicd
 ) -> None:

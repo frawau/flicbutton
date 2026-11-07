@@ -393,6 +393,9 @@ class FlicHub:
             "Lost connection to flicd at %s:%s: %s", self.host, self.port, reason
         )
         self._detach_client()
+        # A button held when the link dropped must not come back as pressed.
+        for bd_addr in list(self.buttons):
+            self._async_emit(HubEvent(HubEventKind.PRESSED, bd_addr, False))
         self._async_emit(HubEvent(HubEventKind.AVAILABILITY))
         self._schedule_reconnect()
 

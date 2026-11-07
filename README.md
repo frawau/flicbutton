@@ -45,7 +45,7 @@ Options (Configure on the entry > Settings):
 | Option | Default | Meaning |
 | --- | --- | --- |
 | Queue timeout | 3 s | Clicks that `flicd` queued for longer than this while Home Assistant was disconnected are dropped. 0 drops all queued clicks. |
-| Ignored click types | none | Click types that do not fire events. |
+| Ignored click types | none | Click types that do not fire events. Ignoring `double` makes singles fire without the double-click wait; ignoring `hold` (but not `double`) reports a hold as `single`. Same behaviour as core `flic`. |
 | Automatic pairing | off | Keeps the pairing wizard running, so any button held for 7 s gets paired. |
 
 ## Pairing a button
@@ -139,6 +139,21 @@ automation:
 2. Add "Flic button (flicd)" through the UI, pointing at the same `flicd`.
 3. Your existing `flic_click` automations keep working, because the event name
    and payload are unchanged.
+4. If your YAML had `ignored_click_types`, set the same list under the entry's
+   **Configure → Settings → Ignored click types**. As in core `flic`, the list
+   also decides which flicd click stream is used, not only which events fire:
+   - `double` ignored: single clicks fire immediately (no double-click wait),
+     and a fast double press fires two `single` events.
+   - otherwise `hold` ignored: a long press fires as `single`.
+   - all three ignored: no `flic_click` events at all.
+
+   Without the same list, timing and click types differ from what your
+   automations saw before.
+
+The legacy binary sensor was `on` when the button was *released* (its state was
+"last click type is not ButtonDown"). The new "Pressed" binary sensor is the
+inverse: `on` while the button is held down. Invert any automation or template
+that used the old sensor state.
 
 The new entities have different entity ids than the legacy binary sensors, so
 automations or dashboards that reference those need updating.

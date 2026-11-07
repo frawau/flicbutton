@@ -15,7 +15,8 @@
       }
     },
     "error": {
-      "cannot_connect": "Failed to connect to flicd. Check the host and port, and that flicd was started with `-s 0.0.0.0` if it runs on another machine."
+      "cannot_connect": "Failed to connect to flicd. Check the host and port, and that flicd was started with `-s 0.0.0.0` if it runs on another machine.",
+      "unknown": "Unexpected error. Check the Home Assistant log for details."
     },
     "abort": {
       "already_configured": "This flicd server is already configured. Its host and port have been updated."
