@@ -375,8 +375,21 @@ class FlicHub:
         self._schedule_reconnect()
 
     @callback
+    def _async_connection_lost_safe(self, reason: str) -> None:
+        """Handle a connection loss; whatever goes wrong, a reconnect is queued."""
+        try:
+            self._async_connection_lost(reason)
+        except Exception:
+            _LOGGER.exception("Error handling loss of connection to flicd")
+            try:
+                self._detach_client()
+            except Exception:
+                _LOGGER.exception("Error detaching the flicd client")
+            self._schedule_reconnect()
+
+    @callback
     def _schedule_reconnect(self) -> None:
-        if self._stopping:
+        if self._stopping or self._unsub_reconnect is not None:
             return
         delay = self._backoff
         self._backoff = min(self._backoff * 2, BACKOFF_MAX)
@@ -395,10 +408,18 @@ class FlicHub:
         except FlicdConnectionError as err:
             _LOGGER.debug("Reconnect to flicd failed: %s", err)
             self._schedule_reconnect()
+        except Exception:  # CancelledError is a BaseException and propagates
+            _LOGGER.exception(
+                "Unexpected error reconnecting to flicd at %s:%s", self.host, self.port
+            )
+            # Never keep a half-set-up connection around next to the next one.
+            if (client := self._detach_client()) is not None:
+                await client.close()
+            self._schedule_reconnect()
 
     @callback
     def _on_disconnect(self) -> None:
-        self._async_connection_lost("connection closed")
+        self._async_connection_lost_safe("connection closed")
 
     @callback
     def _async_keepalive(self, _now: datetime) -> None:
@@ -412,7 +433,7 @@ class FlicHub:
         except (TimeoutError, FlicdConnectionError):
             if client is not self._client:
                 return
-            self._async_connection_lost("no answer to ping")
+            self._async_connection_lost_safe("no answer to ping")
             await client.close()
 
     # -- server events -----------------------------------------------------
@@ -476,6 +497,10 @@ class FlicHub:
                 result = await self._async_run_wizard(client, None)
             except FlicdConnectionError:
                 return
+            except Exception:  # CancelledError is a BaseException and propagates
+                _LOGGER.exception("Auto-pair scan wizard failed; retrying")
+                await asyncio.sleep(BACKOFF_MAX)
+                continue
             _LOGGER.debug("Auto-pair wizard finished: %s", result)
             if result.result in _AUTO_PAIR_PAUSE_RESULTS:
                 await asyncio.sleep(BACKOFF_MAX)

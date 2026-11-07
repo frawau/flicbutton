@@ -26,6 +26,7 @@ from custom_components.flicbutton.flicd import (
     ScanWizardResult,
 )
 from custom_components.flicbutton.flicd.client import (
+    FlicdClient,
     FlicdConnectionError,
     ScanResult,
 )
@@ -302,6 +303,64 @@ async def test_ping_timeout_marks_unavailable_and_reconnects(
     fake_flicd.answer_pings = True
     await _fire(hass, 1)
     await _until(lambda: hub.available)
+
+
+async def test_reconnect_survives_unexpected_error(hass, fake_flicd, make_hub, caplog):
+    fake_flicd.buttons = {A: {}}
+    hub, _ = await make_hub()
+    real_connect = FlicdClient.connect
+    attempts: list[int] = []
+
+    async def _flaky_connect(self, timeout=10.0):
+        attempts.append(1)
+        if len(attempts) == 1:
+            raise RuntimeError("boom")
+        await real_connect(self, timeout)
+
+    with patch.object(FlicdClient, "connect", _flaky_connect):
+        await fake_flicd.drop_clients()
+        await _until(lambda: not hub.connected)
+        await _fire(hass, 1)
+        await _until(lambda: attempts)
+        assert hub.connected is False
+        assert "Unexpected error reconnecting to flicd" in caplog.text
+        await _fire(hass, 2)  # the next backoff step
+        await _until(lambda: hub.available)
+    assert len(attempts) == 2
+    assert set(hub.buttons) == {A}
+
+
+async def test_disconnect_handler_error_still_reconnects(
+    hass, fake_flicd, make_hub, caplog
+):
+    fake_flicd.buttons = {A: {}}
+    hub, _ = await make_hub()
+    with patch.object(hub, "_async_connection_lost", side_effect=RuntimeError("boom")):
+        await fake_flicd.drop_clients()
+        await _until(lambda: not hub.connected)
+    assert "Error handling loss of connection to flicd" in caplog.text
+    await _fire(hass, 1)
+    await _until(lambda: hub.available)
+
+
+async def test_auto_pair_survives_unexpected_error(fake_flicd, make_hub, caplog):
+    real_wizard = FlicdClient.run_scan_wizard
+    calls: list[int] = []
+
+    async def _flaky_wizard(self, on_progress=None):
+        calls.append(1)
+        if len(calls) == 1:
+            raise RuntimeError("boom")
+        return await real_wizard(self, on_progress)
+
+    with (
+        patch.object(FlicdClient, "run_scan_wizard", _flaky_wizard),
+        patch("custom_components.flicbutton.hub.BACKOFF_MAX", 0),
+    ):
+        await make_hub(auto_pair=True)
+        await fake_flicd.wait_for_command("CmdCreateScanWizard")
+    assert len(calls) == 2
+    assert "Auto-pair scan wizard failed" in caplog.text
 
 
 async def test_ping_answered_keeps_connection(hass, fake_flicd, make_hub):
