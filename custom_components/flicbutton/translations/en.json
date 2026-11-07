@@ -58,5 +58,55 @@
       "double": "{entity_name} double pressed",
       "hold": "{entity_name} hold pressed"
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Flic button (flicd)",
+        "menu_options": {
+          "settings": "Settings",
+          "pair": "Pair a new button"
+        }
+      },
+      "settings": {
+        "title": "Settings",
+        "data": {
+          "queue_timeout": "Queue timeout",
+          "ignored_click_types": "Ignored click types",
+          "auto_pair": "Automatic pairing"
+        },
+        "data_description": {
+          "queue_timeout": "Clicks queued while Home Assistant was disconnected and older than this are dropped. 0 drops all queued clicks.",
+          "ignored_click_types": "Click types that do not fire events.",
+          "auto_pair": "Keep flicd's pairing wizard running so any button held for 7 seconds is paired. Disables pairing from this dialog."
+        }
+      }
+    },
+    "progress": {
+      "pairing": "Press and hold the Flic button for 7 seconds until it blinks. Pairing needs internet access on the flicd host."
+    },
+    "abort": {
+      "not_connected": "Not connected to flicd.",
+      "pair_in_progress": "A pairing is already running.",
+      "auto_pair_enabled": "Automatic pairing is enabled. Disable it in the settings to pair from this dialog.",
+      "pair_success": "Paired button {bd_addr}.",
+      "pair_timeout": "No button was found in time.",
+      "pair_private": "The button is in private mode. Hold it for 7 seconds first to make it public.",
+      "pair_bluetooth_unavailable": "The Bluetooth controller of the flicd host is unavailable.",
+      "pair_backend_error": "The Flic internet backend returned an error. Check the internet access of the flicd host.",
+      "pair_invalid_data": "The button returned invalid data.",
+      "pair_other_partner": "The button belongs to another partner and cannot be paired.",
+      "pair_connected_elsewhere": "The button is connected to another device. Disconnect it there first.",
+      "pair_cancelled": "Pairing was cancelled."
+    }
+  },
+  "selector": {
+    "click_types": {
+      "options": {
+        "single": "Single click",
+        "double": "Double click",
+        "hold": "Hold"
+      }
+    }
   }
 }
