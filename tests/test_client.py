@@ -287,3 +287,47 @@ async def test_malformed_packet_ignored_connection_survives(fake_flicd, client):
     await fake_flicd.send_raw(b"\x01\x00\xff")  # unknown opcode
     await client.ping(1.0)
     assert client.connected is True
+
+
+async def test_cancelled_button_info_late_response_not_given_to_next(
+    fake_flicd, client
+):
+    fake_flicd.answer_button_info = False
+    first = asyncio.create_task(client.get_button_info(A))
+    await _until(lambda: len(fake_flicd.commands) == 1)
+    first.cancel()
+    second = asyncio.create_task(client.get_button_info(B))
+    await _until(lambda: len(fake_flicd.commands) == 2)
+    for addr in (A, B):
+        await fake_flicd.send(
+            "EvtGetButtonInfoResponse",
+            bd_addr=addr,
+            uuid=None,
+            color=None,
+            serial_number=None,
+            flic_version=2,
+            firmware_version=1,
+        )
+    assert (await second).bd_addr == B
+
+
+async def test_cancelled_get_info_late_response_not_given_to_next(fake_flicd, client):
+    fake_flicd.answer_get_info = False
+    first = asyncio.create_task(client.get_info())
+    await _until(lambda: len(fake_flicd.commands) == 1)
+    first.cancel()
+    second = asyncio.create_task(client.get_info())
+    await _until(lambda: len(fake_flicd.commands) == 2)
+    for addrs in ([A], [B]):
+        await fake_flicd.send(
+            "EvtGetInfoResponse",
+            bluetooth_controller_state=BluetoothControllerState.Attached,
+            my_bd_addr="00:11:22:33:44:55",
+            my_bd_addr_type=0,
+            max_pending_connections=3,
+            max_concurrently_connected_buttons=20,
+            current_pending_connections=0,
+            currently_no_space_for_new_connection=0,
+            bd_addr_of_verified_buttons=addrs,
+        )
+    assert (await second).verified_buttons == [B]

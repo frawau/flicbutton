@@ -23,6 +23,7 @@ class FakeFlicd:
         self.controller_state = BluetoothControllerState.Attached
         self.answer_pings = True
         self.answer_get_info = True
+        self.answer_button_info = True
         self.commands: list[tuple[str, dict[str, Any]]] = []
         self.scan_wizard_script: list[tuple[str, dict[str, Any]]] = []
         self._server: asyncio.Server | None = None
@@ -120,7 +121,7 @@ class FakeFlicd:
             )
         elif name == "CmdPing" and self.answer_pings:
             await self._reply(writer, "EvtPingResponse", ping_id=fields["ping_id"])
-        elif name == "CmdGetButtonInfo":
+        elif name == "CmdGetButtonInfo" and self.answer_button_info:
             info = {
                 "uuid": None,
                 "color": None,

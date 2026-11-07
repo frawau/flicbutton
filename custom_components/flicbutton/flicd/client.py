@@ -349,11 +349,11 @@ class FlicdClient:
 
     @staticmethod
     def _pop_waiter(waiters: deque[asyncio.Future[Any]]) -> asyncio.Future[Any] | None:
-        while waiters:
-            waiter = waiters.popleft()
-            if not waiter.done():
-                return waiter
-        return None
+        """Pop the oldest waiter; None if it was cancelled (response is dropped)."""
+        if not waiters:
+            return None
+        waiter = waiters.popleft()
+        return None if waiter.done() else waiter
 
     # -- connection loss --------------------------------------------------
 
