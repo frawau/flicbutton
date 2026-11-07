@@ -27,6 +27,7 @@ async def test_diagnostics(hass: HomeAssistant, hass_client, fake_flicd: FakeFli
     entry = MockConfigEntry(
         domain=DOMAIN,
         unique_id=fake_flicd.bd_addr,
+        title="flicd 127.0.0.1",
         data={"host": "127.0.0.1", "port": fake_flicd.port},
     )
     entry.add_to_hass(hass)
@@ -36,7 +37,7 @@ async def test_diagnostics(hass: HomeAssistant, hass_client, fake_flicd: FakeFli
     assert await async_setup_component(hass, "diagnostics", {})
     try:
         diag = await get_diagnostics_for_config_entry(hass, hass_client, entry)
-        json.dumps(diag)
+        assert "127.0.0.1" not in json.dumps(diag)
         assert diag["entry"]["data"]["host"] == "**REDACTED**"
         assert diag["entry"]["data"]["port"] == fake_flicd.port
         assert diag["connected"] is True

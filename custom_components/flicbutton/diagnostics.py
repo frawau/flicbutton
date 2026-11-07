@@ -12,7 +12,7 @@ from homeassistant.core import HomeAssistant
 
 from .hub import FlicHub
 
-TO_REDACT = {"host"}
+TO_REDACT = {"host", "title"}
 
 
 def _plain(value: Any) -> Any:
