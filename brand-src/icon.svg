@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Original generic push-button icon: teal button, orange tap rings. -->
+  <ellipse cx="256" cy="430" rx="170" ry="34" fill="#000" opacity="0.12"/>
+  <!-- side face -->
+  <path d="M86 290 V345 C86 395 160 420 256 420 C352 420 426 395 426 345 V290 Z" fill="#0b6b73"/>
+  <!-- top face -->
+  <ellipse cx="256" cy="290" rx="170" ry="100" fill="#14a3ad"/>
+  <ellipse cx="256" cy="282" rx="128" ry="72" fill="#1fc0cb"/>
+  <ellipse cx="228" cy="262" rx="60" ry="26" fill="#fff" opacity="0.28"/>
+  <!-- tap arcs -->
+  <g fill="none" stroke="#f57c1f" stroke-width="24" stroke-linecap="round">
+    <path d="M176 150 A110 60 0 0 1 336 150"/>
+    <path d="M122 98 A180 95 0 0 1 390 98"/>
+  </g>
+</svg>

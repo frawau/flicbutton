@@ -3,6 +3,9 @@
 import json
 from pathlib import Path
 
+import pytest
+from PIL import Image
+
 from custom_components.flicbutton.const import legacy_button_name
 
 ROOT = Path(__file__).parent.parent
@@ -31,3 +34,14 @@ def test_hacs_json() -> None:
 
 def test_legacy_button_name() -> None:
     assert legacy_button_name("80:E4:DA:71:2B:3C") == "flic_80e4da712b3c"
+
+
+@pytest.mark.parametrize(("name", "size"), [("icon.png", 256), ("icon@2x.png", 512)])
+def test_brand_icons(name: str, size: int) -> None:
+    path = COMPONENT / "brand" / name
+    assert path.is_file()
+    with Image.open(path) as img:
+        assert img.format == "PNG"
+        assert img.size == (size, size)
+        assert img.mode == "RGBA"
+        assert img.getpixel((0, 0))[3] == 0
