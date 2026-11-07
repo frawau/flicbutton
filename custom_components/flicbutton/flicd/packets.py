@@ -234,7 +234,7 @@ def _unpack(
     return items
 
 
-def encode_command(name: str, **fields: Any) -> bytes:
+def encode_command(name: str, /, **fields: Any) -> bytes:
     """Return a framed command packet."""
     opcode = _COMMAND_OPCODES[name]
     return _frame(opcode, _pack(_COMMAND_STRUCTS, _COMMAND_FIELDS, opcode, fields))
@@ -247,7 +247,7 @@ def decode_command(payload: bytes) -> tuple[str, dict[str, Any]]:
     return _COMMANDS[opcode][0], items
 
 
-def encode_event(name: str, **fields: Any) -> bytes:
+def encode_event(name: str, /, **fields: Any) -> bytes:
     """Return a framed event packet (used by the test fake server).
 
     ``EvtGetInfoResponse`` takes ``bd_addr_of_verified_buttons`` and appends the
