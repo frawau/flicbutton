@@ -189,17 +189,10 @@ async def test_button_moves_between_entries(hass, fake_flicd):
 
         device = _device(hass, entry1, A)
         ent_reg = er.async_get(hass)
-        ents = [
-            ent_reg.async_get_or_create(
-                domain,
-                DOMAIN,
-                f"{A}_{domain}",
-                config_entry=entry1,
-                device_id=device.id,
-            )
-            for domain in ("event", "sensor")
-        ]
-        entity_ids = [e.entity_id for e in ents]
+        entity_ids = sorted(
+            e.entity_id for e in er.async_entries_for_device(ent_reg, device.id)
+        )
+        assert len(entity_ids) == 3  # event, pressed, battery
 
         # The button is re-paired to the second server.
         fake2.buttons[A] = {"flic_version": 1}
@@ -211,9 +204,10 @@ async def test_button_moves_between_entries(hass, fake_flicd):
         assert _device(hass, entry1, A) is None
         server2 = _device(hass, entry2, f"server_{fake2.bd_addr}")
         assert moved.via_device_id == server2.id
-        assert [
-            e.entity_id for e in er.async_entries_for_device(ent_reg, moved.id)
-        ] == (entity_ids)
+        assert (
+            sorted(e.entity_id for e in er.async_entries_for_device(ent_reg, moved.id))
+            == entity_ids
+        )
         for entity_id in entity_ids:
             assert ent_reg.async_get(entity_id).config_entry_id == entry2.entry_id
 
@@ -245,7 +239,7 @@ async def test_delete_first_then_pair_elsewhere_creates_new_device(hass, fake_fl
     """Observed behaviour: flicd deleting a button removes its device.
 
     The device, and with it its entities, is gone when the button is later paired
-    on another server, so entry2 gets a fresh device (new id, no entities).
+    on another server, so entry2 gets a fresh device (new id) with new entities.
     Keeping entities across a re-pair needs the announce on the new server to
     come before the delete on the old one.
     """
@@ -260,14 +254,13 @@ async def test_delete_first_then_pair_elsewhere_creates_new_device(hass, fake_fl
         await _setup(hass, entry2)
         old = _device(hass, entry1, A)
         ent_reg = er.async_get(hass)
-        ent_reg.async_get_or_create(
-            "event", DOMAIN, f"{A}_event", config_entry=entry1, device_id=old.id
-        )
+        assert len(er.async_entries_for_device(ent_reg, old.id)) == 3
 
         await fake_flicd.send(
             "EvtButtonDeleted", bd_addr=A, deleted_by_this_client=False
         )
         await _until(lambda: _device(hass, entry1, A) is None)
+        assert er.async_entries_for_device(ent_reg, old.id) == []
 
         fake2.buttons[A] = {"flic_version": 1}
         await fake2.send("EvtNewVerifiedButton", bd_addr=A)
@@ -275,7 +268,10 @@ async def test_delete_first_then_pair_elsewhere_creates_new_device(hass, fake_fl
 
         new = _device(hass, entry2, A)
         assert new.id != old.id
-        assert er.async_entries_for_device(ent_reg, new.id) == []
+        await hass.async_block_till_done()
+        new_entities = er.async_entries_for_device(ent_reg, new.id)
+        assert len(new_entities) == 3
+        assert {e.config_entry_id for e in new_entities} == {entry2.entry_id}
     finally:
         for entry in (entry1, entry2):
             if entry.state is ConfigEntryState.LOADED:

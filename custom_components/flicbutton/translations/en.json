@@ -20,5 +20,36 @@
     "abort": {
       "already_configured": "This flicd server is already configured. Its host and port have been updated."
     }
+  },
+  "entity": {
+    "binary_sensor": {
+      "pressed": {
+        "name": "Pressed"
+      }
+    },
+    "event": {
+      "click": {
+        "name": "Click",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "single": "Single click",
+              "double": "Double click",
+              "hold": "Hold"
+            }
+          }
+        }
+      }
+    },
+    "sensor": {
+      "controller_state": {
+        "name": "Bluetooth controller",
+        "state": {
+          "detached": "Detached",
+          "resetting": "Resetting",
+          "attached": "Attached"
+        }
+      }
+    }
   }
 }

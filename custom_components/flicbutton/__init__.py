@@ -11,23 +11,27 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 
-from .const import CONNECT_TIMEOUT, DOMAIN
+from .const import (
+    CONNECT_TIMEOUT,
+    DOMAIN,
+    signal_button_owned,
+    signal_button_released,
+)
 from .flicd.client import ButtonInfo, FlicdConnectionError
 from .hub import FlicHub, HubEvent, HubEventKind, HubOptions
 
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = [Platform.BINARY_SENSOR, Platform.EVENT, Platform.SENSOR]
-# The platform modules arrive with the entities; Task 6 forwards PLATFORMS.
-_FORWARDED_PLATFORMS: list[Platform] = []
 
 MANUFACTURER = "Shortcut Labs"
 
 type FlicConfigEntry = ConfigEntry[FlicHub]
 
 
-def _server_identifier(entry: ConfigEntry) -> tuple[str, str]:
+def server_identifier(entry: ConfigEntry) -> tuple[str, str]:
     return (DOMAIN, f"server_{entry.unique_id}")
 
 
@@ -46,7 +50,7 @@ def async_claim_button_device(
     """
     dev_reg = dr.async_get(hass)
     server = dev_reg.async_get_device_by_identifier(
-        _server_identifier(entry), entry.entry_id
+        server_identifier(entry), entry.entry_id
     )
     identifier = (DOMAIN, info.bd_addr)
 
@@ -59,6 +63,10 @@ def async_claim_button_device(
                 return None
             _LOGGER.info(
                 "Moving button %s from %s to %s", info.bd_addr, owner.title, entry.title
+            )
+            # The old entry's live entities let go of their entity_ids first.
+            async_dispatcher_send(
+                hass, signal_button_released(owner.entry_id), info.bd_addr
             )
             # Entities first: moving the device deletes the old entry's entities.
             ent_reg = er.async_get(hass)
@@ -112,7 +120,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: FlicConfigEntry) -> bool
 
     dr.async_get(hass).async_get_or_create(
         config_entry_id=entry.entry_id,
-        identifiers={_server_identifier(entry)},
+        identifiers={server_identifier(entry)},
         manufacturer=MANUFACTURER,
         model="flicd",
         name=f"flicd {entry.data[CONF_HOST]}",
@@ -126,20 +134,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: FlicConfigEntry) -> bool
         if event.bd_addr is None:
             return
         if event.kind is HubEventKind.BUTTON_ADDED:
-            async_claim_button_device(
+            device = async_claim_button_device(
                 hass, entry, hub.buttons[event.bd_addr], bool(event.value)
             )
+            if device is not None:
+                async_dispatcher_send(
+                    hass, signal_button_owned(entry.entry_id), event.bd_addr
+                )
         elif event.kind is HubEventKind.BUTTON_REMOVED:
             _async_remove_button_device(hass, entry, event.bd_addr)
 
     entry.async_on_unload(hub.async_subscribe(_on_hub_event))
 
-    await hass.config_entries.async_forward_entry_setups(entry, _FORWARDED_PLATFORMS)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: FlicConfigEntry) -> bool:
-    return await hass.config_entries.async_unload_platforms(entry, _FORWARDED_PLATFORMS)
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 
 async def async_remove_config_entry_device(

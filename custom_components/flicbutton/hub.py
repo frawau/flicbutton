@@ -207,6 +207,11 @@ class FlicHub:
             and self._controller_state is BluetoothControllerState.Attached
         )
 
+    @property
+    def controller_state(self) -> BluetoothControllerState | None:
+        """Last known Bluetooth controller state; None while disconnected."""
+        return self._controller_state if self.connected else None
+
     @callback
     def async_subscribe(self, cb: Callable[[HubEvent], None]) -> Callable[[], None]:
         self._subscribers.append(cb)

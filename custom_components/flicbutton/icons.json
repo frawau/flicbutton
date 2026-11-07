@@ -1,0 +1,19 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "pressed": {
+        "default": "mdi:circle-slice-8"
+      }
+    },
+    "event": {
+      "click": {
+        "default": "mdi:gesture-tap-button"
+      }
+    },
+    "sensor": {
+      "controller_state": {
+        "default": "mdi:bluetooth"
+      }
+    }
+  }
+}
