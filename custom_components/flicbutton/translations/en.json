@@ -51,5 +51,12 @@
         }
       }
     }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "single": "{entity_name} single pressed",
+      "double": "{entity_name} double pressed",
+      "hold": "{entity_name} hold pressed"
+    }
   }
 }
