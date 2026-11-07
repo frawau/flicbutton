@@ -330,8 +330,6 @@ async def test_backoff_doubles_and_caps(hass, fake_flicd, make_hub):
     with patch(
         "custom_components.flicbutton.hub.async_call_later", _recording_call_later
     ):
-        # Drop first: Server.wait_closed() in stop() waits for open clients.
-        await fake_flicd.drop_clients()
         await fake_flicd.stop()
         await _until(lambda: delays)
         now = dt_util.utcnow()
@@ -354,10 +352,9 @@ async def test_ping_timeout_marks_unavailable_and_reconnects(
         async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=30))
         await fake_flicd.wait_for_command("CmdPing")
         await _until(lambda: not hub.available)
-        await _fire(hass, 10)
     assert hub.connected is False
     fake_flicd.answer_pings = True
-    await _fire(hass, 1)
+    await _fire(hass, 1)  # the first backoff step reconnects
     await _until(lambda: hub.available)
 
 

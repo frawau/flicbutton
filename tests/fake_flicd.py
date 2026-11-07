@@ -32,16 +32,18 @@ class FakeFlicd:
         self._waiters: list[tuple[str, asyncio.Future[dict[str, Any]]]] = []
         self._handlers: set[asyncio.Task[None]] = set()
 
-    async def start(self) -> None:
-        self._server = await asyncio.start_server(self._on_client, "127.0.0.1", 0)
+    async def start(self, port: int = 0) -> None:
+        """Listen on ``port``; 0 picks a free one. Pass the old port to restart."""
+        self._server = await asyncio.start_server(self._on_client, "127.0.0.1", port)
         self.port = self._server.sockets[0].getsockname()[1]
 
     async def stop(self) -> None:
+        # Drop clients first: Server.wait_closed() waits for open connections.
+        await self.drop_clients()
         if self._server is not None:
             self._server.close()
             await self._server.wait_closed()
             self._server = None
-        await self.drop_clients()
         for task in list(self._handlers):
             task.cancel()
         await asyncio.gather(*self._handlers, return_exceptions=True)
