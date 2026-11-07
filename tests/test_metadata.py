@@ -45,3 +45,13 @@ def test_brand_icons(name: str, size: int) -> None:
         assert img.size == (size, size)
         assert img.mode == "RGBA"
         assert img.getpixel((0, 0))[3] == 0
+
+
+def test_device_trigger_strings_have_no_placeholders() -> None:
+    # Device triggers carry no entity_id, so {entity_name} would never render.
+    strings = json.loads((COMPONENT / "translations" / "en.json").read_text())
+    assert strings["device_automation"]["trigger_type"] == {
+        "single": "Single click",
+        "double": "Double click",
+        "hold": "Hold",
+    }

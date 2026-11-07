@@ -101,8 +101,8 @@ and firmware version.
 
 ## Device triggers
 
-In the automation editor, pick a button as the device and choose "single
-pressed", "double pressed" or "hold pressed". Click types listed in "Ignored
+In the automation editor, pick a button as the device and choose "Single
+click", "Double click" or "Hold". Click types listed in "Ignored
 click types" are not offered.
 
 ## The `flic_click` event
