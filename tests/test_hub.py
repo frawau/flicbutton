@@ -26,6 +26,7 @@ from custom_components.flicbutton.flicd import (
     ScanWizardResult,
 )
 from custom_components.flicbutton.flicd.client import (
+    ClickStream,
     FlicdClient,
     FlicdConnectionError,
     ScanResult,
@@ -36,6 +37,7 @@ from custom_components.flicbutton.hub import (
     HubEventKind,
     HubOptions,
     PairingInProgress,
+    click_stream_for,
 )
 
 pytestmark = pytest.mark.usefixtures("socket_enabled")
@@ -45,6 +47,8 @@ B = "80:e4:da:71:2b:3d"
 C = "80:e4:da:71:2b:3e"
 
 CLICK = "EvtButtonSingleOrDoubleClickOrHold"
+CLICK_OR_HOLD = "EvtButtonClickOrHold"
+SINGLE_OR_DOUBLE = "EvtButtonSingleOrDoubleClick"
 UPDOWN = "EvtButtonUpOrDown"
 
 
@@ -115,9 +119,9 @@ async def make_hub(hass, fake_flicd):
         await hub.async_stop()
 
 
-async def _click(fake, addr, click_type, was_queued=False, time_diff=0):
+async def _click(fake, addr, click_type, was_queued=False, time_diff=0, event=CLICK):
     await fake.send(
-        CLICK,
+        event,
         conn_id=_conn_id(fake, addr),
         click_type=click_type,
         was_queued=was_queued,
@@ -191,18 +195,70 @@ async def test_click_fires_legacy_event(hass, fake_flicd, make_hub):
     ]
 
 
-async def test_ignored_click_type_dropped(hass, fake_flicd, make_hub):
+@pytest.mark.parametrize(
+    ("ignored", "stream"),
+    [
+        ([], ClickStream.SINGLE_OR_DOUBLE_CLICK_OR_HOLD),
+        (["single"], ClickStream.SINGLE_OR_DOUBLE_CLICK_OR_HOLD),
+        (["double"], ClickStream.CLICK_OR_HOLD),
+        (["double", "hold"], ClickStream.CLICK_OR_HOLD),
+        (["single", "double"], ClickStream.CLICK_OR_HOLD),
+        (["hold"], ClickStream.SINGLE_OR_DOUBLE_CLICK),
+        (["single", "hold"], ClickStream.SINGLE_OR_DOUBLE_CLICK),
+        (["single", "double", "hold"], None),
+    ],
+)
+def test_click_stream_mirrors_legacy(ignored, stream):
+    assert click_stream_for(ignored) is stream
+
+
+async def test_ignore_double_uses_click_or_hold_stream(hass, fake_flicd, make_hub):
     fake_flicd.buttons = {A: {}}
     clicks = async_capture_events(hass, "flic_click")
     _, events = await make_hub(ignored_click_types=["double"])
+    # Not the subscribed stream: dropped by the client.
     await _click(fake_flicd, A, ClickType.ButtonDoubleClick)
     await _updown(fake_flicd, A, ClickType.ButtonDown)
-    await _click(fake_flicd, A, ClickType.ButtonSingleClick)
+    await _click(fake_flicd, A, ClickType.ButtonClick, event=CLICK_OR_HOLD)
+    await _click(fake_flicd, A, ClickType.ButtonHold, event=CLICK_OR_HOLD)
+    await _until(lambda: len(clicks) == 2)
+    await hass.async_block_till_done()
+    assert clicks[0].data == {
+        "button_name": "flic_80e4da712b3c",
+        "button_address": A,
+        "click_type": "single",
+        "queued_time": 0,
+    }
+    assert [c.data["click_type"] for c in clicks] == ["single", "hold"]
+    assert [e.value for e in _kinds(events, HubEventKind.CLICK)] == [
+        ("single", 0),
+        ("hold", 0),
+    ]
+    assert [e.value for e in _kinds(events, HubEventKind.PRESSED)] == [True]
+
+
+async def test_ignore_hold_uses_single_or_double_stream(hass, fake_flicd, make_hub):
+    fake_flicd.buttons = {A: {}}
+    clicks = async_capture_events(hass, "flic_click")
+    await make_hub(ignored_click_types=["hold"])
+    await _click(fake_flicd, A, ClickType.ButtonHold)  # not subscribed
+    await _click(fake_flicd, A, ClickType.ButtonHold, event=CLICK_OR_HOLD)
+    await _click(fake_flicd, A, ClickType.ButtonSingleClick, event=SINGLE_OR_DOUBLE)
+    await _click(fake_flicd, A, ClickType.ButtonDoubleClick, event=SINGLE_OR_DOUBLE)
+    await _until(lambda: len(clicks) == 2)
+    await hass.async_block_till_done()
+    assert [c.data["click_type"] for c in clicks] == ["single", "double"]
+
+
+async def test_ignore_filter_applies_on_top_of_stream(hass, fake_flicd, make_hub):
+    fake_flicd.buttons = {A: {}}
+    clicks = async_capture_events(hass, "flic_click")
+    await make_hub(ignored_click_types=["double", "hold"])
+    await _click(fake_flicd, A, ClickType.ButtonHold, event=CLICK_OR_HOLD)
+    await _click(fake_flicd, A, ClickType.ButtonClick, event=CLICK_OR_HOLD)
     await _until(lambda: clicks)
     await hass.async_block_till_done()
     assert [c.data["click_type"] for c in clicks] == ["single"]
-    assert [e.value for e in _kinds(events, HubEventKind.CLICK)] == [("single", 0)]
-    assert [e.value for e in _kinds(events, HubEventKind.PRESSED)] == [True]
 
 
 async def test_queued_click_beyond_timeout_dropped_everywhere(

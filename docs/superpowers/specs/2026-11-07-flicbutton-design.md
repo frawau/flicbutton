@@ -144,11 +144,16 @@ Success means:
   note. No external PyPI dependency.
 - **Protocol reference:** upstream `ProtocolDocumentation.md`
   (length-prefixed little-endian binary packets over TCP).
-- **Click mapping:** `ButtonSingleClick` → `single`, `ButtonDoubleClick` →
-  `double`, `ButtonHold` → `hold`. Use the single-or-double-or-hold
-  callback set (legacy also maps `ButtonClick` → `single`; only one of
-  these callback sets is subscribed, so no duplicate singles).
-  `ButtonDown`/`ButtonUp` drive the binary sensor.
+- **Click mapping:** `ButtonClick` and `ButtonSingleClick` → `single`,
+  `ButtonDoubleClick` → `double`, `ButtonHold` → `hold`. As in legacy, each
+  channel subscribes to exactly one flicd click stream, chosen from the
+  ignored click types: `double` ignored → ClickOrHold (singles fire at once,
+  a fast double press yields two singles); else `hold` ignored →
+  SingleOrDoubleClick (a hold arrives as `single`); otherwise
+  SingleOrDoubleClickOrHold; all three ignored → no click stream. The ignore
+  filter below still applies on top. Since only one stream is subscribed,
+  there are no duplicate singles. `ButtonDown`/`ButtonUp` drive the binary
+  sensor.
 - **Filtering (Claude's call):** filtering happens once, in the client
   callback layer, before anything else sees the click.
   - Ignored click types are suppressed everywhere: `flic_click`, the event

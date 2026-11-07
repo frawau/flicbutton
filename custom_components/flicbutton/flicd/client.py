@@ -9,6 +9,7 @@ from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any, Protocol
 
 from ..const import CONNECT_TIMEOUT
@@ -43,6 +44,17 @@ _SCAN_PROGRESS = {
     "EvtScanWizardFoundPublicButton": "found_public",
     "EvtScanWizardButtonConnected": "connected",
 }
+
+
+class ClickStream(StrEnum):
+    """Which flicd click callback a channel delivers to ``on_click``.
+
+    flicd emits all three for every press; a channel listens to one of them.
+    """
+
+    CLICK_OR_HOLD = "EvtButtonClickOrHold"
+    SINGLE_OR_DOUBLE_CLICK = "EvtButtonSingleOrDoubleClick"
+    SINGLE_OR_DOUBLE_CLICK_OR_HOLD = "EvtButtonSingleOrDoubleClickOrHold"
 
 
 class FlicdConnectionError(Exception):
@@ -120,6 +132,7 @@ class FlicdClient:
         self._ping_waiters: dict[int, asyncio.Future[None]] = {}
         self._delete_waiters: dict[str, list[asyncio.Future[None]]] = {}
         self._channels: dict[int, ChannelListener] = {}
+        self._click_streams: dict[int, ClickStream | None] = {}
         self._battery: dict[int, Callable[[int | None, datetime], None]] = {}
         self._wizard_id: int | None = None
         self._wizard_future: asyncio.Future[ScanResult] | None = None
@@ -188,7 +201,13 @@ class FlicdClient:
         finally:
             self._ping_waiters.pop(ping_id, None)
 
-    def open_channel(self, bd_addr: str, listener: ChannelListener) -> int:
+    def open_channel(
+        self,
+        bd_addr: str,
+        listener: ChannelListener,
+        click_stream: ClickStream | None = ClickStream.SINGLE_OR_DOUBLE_CLICK_OR_HOLD,
+    ) -> int:
+        """Open a connection channel; ``click_stream=None`` delivers no clicks."""
         conn_id = self._new_id()
         self._send(
             "CmdCreateConnectionChannel",
@@ -198,10 +217,12 @@ class FlicdClient:
             auto_disconnect_time=AUTO_DISCONNECT_TIME,
         )
         self._channels[conn_id] = listener
+        self._click_streams[conn_id] = click_stream
         return conn_id
 
     def close_channel(self, conn_id: int) -> None:
         self._channels.pop(conn_id, None)
+        self._click_streams.pop(conn_id, None)
         self._send("CmdRemoveConnectionChannel", conn_id=conn_id)
 
     def add_battery_listener(
@@ -315,7 +336,7 @@ class FlicdClient:
             return
         if name == "EvtButtonUpOrDown":
             listener.on_up_down(f["click_type"], f["was_queued"], f["time_diff"])
-        elif name == "EvtButtonSingleOrDoubleClickOrHold":
+        elif name == self._click_streams.get(f["conn_id"]):
             listener.on_click(f["click_type"], f["was_queued"], f["time_diff"])
         elif name == "EvtCreateConnectionChannelResponse":
             listener.on_status(f["connection_status"], DisconnectReason.Unspecified)
@@ -323,6 +344,7 @@ class FlicdClient:
             listener.on_status(f["connection_status"], f["disconnect_reason"])
         elif name == "EvtConnectionChannelRemoved":
             self._channels.pop(f["conn_id"], None)
+            self._click_streams.pop(f["conn_id"], None)
             listener.on_removed(f["removed_reason"])
 
     def _dispatch_wizard(self, name: str, f: dict[str, Any]) -> None:
@@ -383,4 +405,5 @@ class FlicdClient:
             if not future.done():
                 future.set_exception(error)
         self._channels.clear()
+        self._click_streams.clear()
         self._battery.clear()

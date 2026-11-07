@@ -20,6 +20,7 @@ from custom_components.flicbutton.flicd import (
     ScanWizardResult,
 )
 from custom_components.flicbutton.flicd.client import (
+    ClickStream,
     FlicdClient,
     FlicdConnectionError,
     ScanResult,
@@ -149,6 +150,39 @@ async def test_channel_click_dispatch(fake_flicd, client):
         ConnectionStatus.Ready, DisconnectReason.Unspecified
     )
     listener.on_removed.assert_called_once_with(RemovedReason.RemovedByThisClient)
+
+
+_CLICK_EVENTS = (
+    ("EvtButtonClickOrHold", ClickType.ButtonClick),
+    ("EvtButtonSingleOrDoubleClick", ClickType.ButtonSingleClick),
+    ("EvtButtonSingleOrDoubleClickOrHold", ClickType.ButtonHold),
+)
+
+
+@pytest.mark.parametrize(
+    ("stream", "expected"),
+    [
+        (ClickStream.CLICK_OR_HOLD, ClickType.ButtonClick),
+        (ClickStream.SINGLE_OR_DOUBLE_CLICK, ClickType.ButtonSingleClick),
+        (ClickStream.SINGLE_OR_DOUBLE_CLICK_OR_HOLD, ClickType.ButtonHold),
+        (None, None),
+    ],
+)
+async def test_channel_routes_only_its_click_stream(
+    fake_flicd, client, stream, expected
+):
+    listener = MagicMock()
+    conn_id = client.open_channel(A, listener, click_stream=stream)
+    await fake_flicd.wait_for_command("CmdCreateConnectionChannel")
+    for event, click_type in _CLICK_EVENTS:
+        await fake_flicd.send(
+            event, conn_id=conn_id, click_type=click_type, was_queued=False, time_diff=0
+        )
+    await client.ping(1.0)  # sentinel: all events above were processed
+    if expected is None:
+        listener.on_click.assert_not_called()
+    else:
+        listener.on_click.assert_called_once_with(expected, False, 0)
 
 
 async def test_close_channel_sends_remove(fake_flicd, client):

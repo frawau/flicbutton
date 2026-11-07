@@ -40,6 +40,7 @@ from .flicd import (
 )
 from .flicd.client import (
     ButtonInfo,
+    ClickStream,
     FlicdClient,
     FlicdConnectionError,
     ScanResult,
@@ -49,6 +50,7 @@ from .flicd.client import (
 _LOGGER = logging.getLogger(__name__)
 
 _CLICK_TYPES = {
+    ClickType.ButtonClick: CLICK_SINGLE,  # ClickOrHold stream
     ClickType.ButtonSingleClick: CLICK_SINGLE,
     ClickType.ButtonDoubleClick: CLICK_DOUBLE,
     ClickType.ButtonHold: CLICK_HOLD,
@@ -60,6 +62,24 @@ _AUTO_PAIR_PAUSE_RESULTS = frozenset(
         ScanWizardResult.WizardInternetBackendError,
     }
 )
+
+
+def click_stream_for(ignored_click_types: list[str]) -> ClickStream | None:
+    """Pick the flicd click stream the way the legacy core ``flic`` did.
+
+    Ignoring ``double`` subscribes to ClickOrHold (singles fire at once, a fast
+    double press yields two singles); else ignoring ``hold`` subscribes to
+    SingleOrDoubleClick (a hold arrives as a single). The ignore filter still
+    applies on top. All three ignored: no click callbacks at all.
+    """
+    ignored = set(ignored_click_types)
+    if {CLICK_SINGLE, CLICK_DOUBLE, CLICK_HOLD} <= ignored:
+        return None
+    if CLICK_DOUBLE in ignored:
+        return ClickStream.CLICK_OR_HOLD
+    if CLICK_HOLD in ignored:
+        return ClickStream.SINGLE_OR_DOUBLE_CLICK
+    return ClickStream.SINGLE_OR_DOUBLE_CLICK_OR_HOLD
 
 
 class PairingInProgress(Exception):
@@ -330,7 +350,9 @@ class FlicHub:
         self.buttons[bd_addr] = info
         self.battery.setdefault(bd_addr, None)
         self._channels[bd_addr] = client.open_channel(
-            bd_addr, _ChannelListener(self, bd_addr)
+            bd_addr,
+            _ChannelListener(self, bd_addr),
+            click_stream_for(self.options.ignored_click_types),
         )
         client.add_battery_listener(bd_addr, partial(self._on_battery, bd_addr))
         if is_new:
