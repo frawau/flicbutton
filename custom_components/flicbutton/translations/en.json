@@ -1,0 +1,24 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to flicd",
+        "description": "Enter the address of the machine running the flicd daemon. To accept connections from other machines, flicd must be started with `-s 0.0.0.0`.",
+        "data": {
+          "host": "Host",
+          "port": "Port"
+        },
+        "data_description": {
+          "host": "Host name or IP address of the flicd server.",
+          "port": "TCP port flicd listens on (default 5551)."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to flicd. Check the host and port, and that flicd was started with `-s 0.0.0.0` if it runs on another machine."
+    },
+    "abort": {
+      "already_configured": "This flicd server is already configured. Its host and port have been updated."
+    }
+  }
+}

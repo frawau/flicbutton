@@ -19,6 +19,7 @@ class FakeFlicd:
 
     def __init__(self) -> None:
         self.port = 0
+        self.bd_addr = "00:11:22:33:44:55"
         self.buttons: dict[str, dict[str, Any]] = {}
         self.controller_state = BluetoothControllerState.Attached
         self.answer_pings = True
@@ -111,7 +112,7 @@ class FakeFlicd:
                 writer,
                 "EvtGetInfoResponse",
                 bluetooth_controller_state=self.controller_state,
-                my_bd_addr="00:11:22:33:44:55",
+                my_bd_addr=self.bd_addr,
                 my_bd_addr_type=BdAddrType.PublicBdAddrType,
                 max_pending_connections=3,
                 max_concurrently_connected_buttons=20,
