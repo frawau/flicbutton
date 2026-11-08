@@ -11,6 +11,10 @@ Not affiliated with Shortcut Labs / Flic. Flic is a trademark of its owner.
 
 - `flicd` from [50ButtonsEach/fliclib-linux-hci](https://github.com/50ButtonsEach/fliclib-linux-hci),
   running on a Linux machine (a Raspberry Pi Zero works well).
+  flicbutton speaks the documented flicd client protocol, so it works with any
+  server that implements it — not only Shortcut Labs' flicd binary. It has been
+  used with a flicd-compatible server on Linux and on a rooted NSPanel Pro
+  (Android).
 - When Home Assistant runs on another machine, start `flicd` with `-s 0.0.0.0`
   so it accepts remote clients:
 
